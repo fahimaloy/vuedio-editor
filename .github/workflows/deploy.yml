@@ -42,7 +42,11 @@ jobs:
         run: cargo install wasm-bindgen-cli --version 0.2.100
 
       - name: Install binaryen (wasm-opt)
-        run: sudo apt-get install -y binaryen
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/WebAssembly/binaryen/releases/download/version_119/binaryen-version_119-x86_64-linux.tar.gz | tar xz
+          sudo install -m 755 binaryen-version_119/bin/wasm-opt /usr/local/bin/wasm-opt
+          rm -rf binaryen-version_119
 
       - name: Build Rust WASM
         run: |
