@@ -1,0 +1,6 @@
+tools:
+    shell:
+        allow:
+            - ls *
+            - pkill *
+            - echo *

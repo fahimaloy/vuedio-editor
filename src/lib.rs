@@ -119,6 +119,77 @@ impl VideoProcessor {
         self.frame_data = img.into_raw();
         Ok(())
     }
+
+    /// Contrast adjustment (in-place). 1.0 = unchanged, >1.0 = more contrast, <1.0 = less contrast.
+    pub fn apply_contrast(&mut self, factor: f32) -> Result<(), JsValue> {
+        if !factor.is_finite() {
+            return Err(js_err("contrast factor must be finite"));
+        }
+        let mut img = to_rgba(self.width, self.height, &self.frame_data)?;
+        let contrast = factor.clamp(0.0, 3.0);
+        for p in img.pixels_mut() {
+            let rf = (p[0] as f32 - 128.0) * contrast + 128.0;
+            let gf = (p[1] as f32 - 128.0) * contrast + 128.0;
+            let bf = (p[2] as f32 - 128.0) * contrast + 128.0;
+            p[0] = rf.clamp(0.0, 255.0) as u8;
+            p[1] = gf.clamp(0.0, 255.0) as u8;
+            p[2] = bf.clamp(0.0, 255.0) as u8;
+        }
+        self.frame_data = img.into_raw();
+        Ok(())
+    }
+
+    /// Saturation adjustment (in-place). 1.0 = unchanged, >1.0 = more saturated.
+    pub fn apply_saturation(&mut self, factor: f32) -> Result<(), JsValue> {
+        if !factor.is_finite() || factor < 0.0 {
+            return Err(js_err(
+                "saturation factor must be a finite, non-negative number",
+            ));
+        }
+        let mut img = to_rgba(self.width, self.height, &self.frame_data)?;
+        for p in img.pixels_mut() {
+            let l = 0.299 * p[0] as f32 + 0.587 * p[1] as f32 + 0.114 * p[2] as f32;
+            p[0] = ((p[0] as f32 - l) * factor + l).clamp(0.0, 255.0) as u8;
+            p[1] = ((p[1] as f32 - l) * factor + l).clamp(0.0, 255.0) as u8;
+            p[2] = ((p[2] as f32 - l) * factor + l).clamp(0.0, 255.0) as u8;
+        }
+        self.frame_data = img.into_raw();
+        Ok(())
+    }
+
+    /// Simple box blur (in-place). radius = blur strength.
+    pub fn apply_blur(&mut self, radius: u32) -> Result<(), JsValue> {
+        let r = (radius as usize).min(20);
+        if r == 0 {
+            return Ok(());
+        }
+        let mut img = to_rgba(self.width, self.height, &self.frame_data)?;
+        let (w, h) = (img.width() as usize, img.height() as usize);
+        let mut blurred = img.clone();
+
+        for y in r..(h - r) {
+            for x in r..(w - r) {
+                let mut r_sum = 0u32;
+                let mut g_sum = 0u32;
+                let mut b_sum = 0u32;
+                for dy in 0..=r * 2 {
+                    for dx in 0..=r * 2 {
+                        let p = img.get_pixel((x + dx - r) as u32, (y + dy - r) as u32);
+                        r_sum += p[0] as u32;
+                        g_sum += p[1] as u32;
+                        b_sum += p[2] as u32;
+                    }
+                }
+                let count = ((r * 2 + 1) * (r * 2 + 1)) as u32;
+                let p = blurred.get_pixel_mut(x as u32, y as u32);
+                p[0] = (r_sum / count) as u8;
+                p[1] = (g_sum / count) as u8;
+                p[2] = (b_sum / count) as u8;
+            }
+        }
+        self.frame_data = blurred.into_raw();
+        Ok(())
+    }
 }
 
 /// Placeholder for an async export pipeline (wire to your real implementation).
