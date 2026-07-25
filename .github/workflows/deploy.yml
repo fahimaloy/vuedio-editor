@@ -1,0 +1,91 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version 0.2.100
+
+      - name: Install binaryen (wasm-opt)
+        run: |
+          set -euo pipefail
+          curl -fsSL https://github.com/WebAssembly/binaryen/releases/download/version_119/binaryen-version_119-x86_64-linux.tar.gz | tar xz
+          sudo install -m 755 binaryen-version_119/bin/wasm-opt /usr/local/bin/wasm-opt
+          rm -rf binaryen-version_119
+
+      - name: Build Rust WASM
+        run: |
+          cargo build --target wasm32-unknown-unknown --release
+          OUT_DIR="./video-editor/src/wasm"
+          mkdir -p "$OUT_DIR"
+          wasm-bindgen target/wasm32-unknown-unknown/release/video_processor.wasm \
+            --out-dir "$OUT_DIR" \
+            --target web \
+            --no-typescript
+          wasm-opt -O4 "$OUT_DIR/video_processor_bg.wasm" -o "$OUT_DIR/video_processor_bg.wasm"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: video-editor/package-lock.json
+
+      - name: Install Node dependencies
+        run: npm ci
+        working-directory: video-editor
+
+      - name: Build Vue app
+        run: npm run build
+        working-directory: video-editor
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: video-editor/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
