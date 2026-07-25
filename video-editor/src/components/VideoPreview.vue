@@ -1,9 +1,10 @@
 <!-- src/components/VideoPreview.vue -->
 <template>
-    <section>
+    <section class="h-full flex flex-col">
+        <!-- Video with controls -->
         <div
             v-if="videoUrl"
-            class="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)]"
+            class="relative flex-1 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] flex flex-col"
         >
             <!-- Hidden video; canvas shows the frame -->
             <video
@@ -25,10 +26,19 @@
                 @ended="emitPlaying"
             ></video>
 
-            <div class="relative">
+            <!-- Hidden file input for video upload -->
+            <input
+                ref="fileInput"
+                type="file"
+                accept="video/*,image/*"
+                class="hidden"
+                @change="handleVideoUpload"
+            />
+
+            <div class="relative flex-1 min-h-0">
                 <canvas
                     ref="canvasElement"
-                    class="block w-full aspect-video bg-black"
+                    class="block w-full h-full bg-black rounded-xl"
                 ></canvas>
 
                 <!-- Overlays -->
@@ -48,6 +58,8 @@
                         <video
                             v-if="it.kind === 'video' && it.src"
                             :src="it.src"
+                            :data-start="it.start"
+                            :data-end="it.end"
                             playsinline
                             muted
                             loop
@@ -115,18 +127,42 @@
 
         <div
             v-else
-            class="grid place-items-center rounded-xl border border-dashed border-white/10 bg-white/[0.02] py-16 text-center"
+            class="flex-1 grid place-items-center rounded-xl border border-dashed border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] min-h-0"
         >
-            <div class="max-w-md space-y-3 px-4">
+            <div class="max-w-md space-y-4 px-4 text-center">
                 <div
-                    class="mx-auto grid size-12 place-items-center rounded-lg bg-gradient-to-br from-violet-600 to-cyan-400 text-neutral-950 font-extrabold"
+                    class="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-violet-600/20 to-cyan-400/20 text-violet-300 backdrop-blur-sm"
                 >
-                    V
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-10 w-10"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M9 10l4.553-2.276A1 1 0 0115 8.618v6.764a1 1 0 01-1.447.894L9 14M3 10l4.553-2.276A1 1 0 019 8.618v6.764a1 1 0 01-1.447.894L3 14"
+                        />
+                    </svg>
                 </div>
-                <p class="text-sm text-neutral-300">
-                    Upload a video to get started
-                </p>
-                <p class="text-xs text-neutral-500">MP4, WebM, MOV</p>
+                <div>
+                    <p class="text-base font-medium text-neutral-200">
+                        Upload a video to get started
+                    </p>
+                    <p class="text-sm text-neutral-400 mt-1">
+                        MP4, WebM, MOV supported
+                    </p>
+                </div>
+                <button
+                    @click="openFilePicker"
+                    class="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-gradient-to-r from-violet-600 to-cyan-400 px-6 py-3 text-sm text-neutral-950 font-semibold shadow-lg hover:brightness-105 active:scale-95 transition mx-auto"
+                >
+                    <ArrowUpTrayIcon class="h-5 w-5" aria-hidden="true" />
+                    Upload Video
+                </button>
             </div>
         </div>
     </section>
@@ -135,6 +171,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from "vue";
 import { VideoProcessor } from "../wasm/video_processor";
+import { ArrowUpTrayIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
     videoUrl: String,
@@ -151,16 +188,22 @@ const emit = defineEmits([
     "overlay-move",
     "overlay-resize",
     "overlay-select",
+    "upload-video",
 ]);
 
 const videoElement = ref(null);
 const canvasElement = ref(null);
 const overlayRoot = ref(null);
+const fileInput = ref(null);
 let ctx = null,
-    raf = null,
     processor = null;
+let isLoopActive = false;
 let width = 0,
     height = 0;
+
+// Frame timing for performance monitoring
+let lastFrameTime = 0;
+const MIN_FRAME_TIME = 16; // ~60fps cap
 
 // Buffering UI
 const bufferedPercent = ref(0);
@@ -257,6 +300,24 @@ const applyWASMFilter = (imageData) => {
     return imageData;
 };
 
+/* Sync overlay video times with main video */
+const syncOverlayVideos = () => {
+    const t = props.currentTime || 0;
+    if (!overlayRoot.value) return;
+    const overlayVideos = overlayRoot.value.querySelectorAll("video");
+    overlayVideos.forEach((video) => {
+        const start = Number(video.dataset.start) || 0;
+        const end = Number(video.dataset.end) || 0;
+        // Only sync if the main video time is within the overlay's time range
+        if (t >= start && t <= end) {
+            const relativeTime = Math.max(0, t - start);
+            if (video.currentTime !== relativeTime) {
+                video.currentTime = relativeTime;
+            }
+        }
+    });
+};
+
 /* Main draw loop with filter pipeline */
 const loop = () => {
     const v = videoElement.value;
@@ -266,12 +327,20 @@ const loop = () => {
         return;
     }
 
+    // Only sync overlay videos if we have overlays to process
+    if (props.overlayItems?.length) {
+        syncOverlayVideos();
+    }
+
     ctx.drawImage(v, 0, 0, c.width, c.height);
 
     try {
-        const imageData = ctx.getImageData(0, 0, c.width, c.height);
-        const processed = applyWASMFilter(imageData);
-        ctx.putImageData(processed, 0, 0);
+        // Skip WASM processing if no filters
+        if (props.filters?.length) {
+            const imageData = ctx.getImageData(0, 0, c.width, c.height);
+            const processed = applyWASMFilter(imageData);
+            ctx.putImageData(processed, 0, 0);
+        }
     } catch (e) {
         console.warn("Canvas filter processing failed:", e);
     }
@@ -406,12 +475,31 @@ const setCurrentTime = (t) => {
     if (v) v.currentTime = t;
 };
 const getVideoElement = () => videoElement.value;
+
+const openFilePicker = () => {
+    fileInput.value?.click();
+};
+
+const handleVideoUpload = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (file.type.startsWith("video/") || file.type.startsWith("image/")) {
+        const url = URL.createObjectURL(file);
+        emit("upload-video", url);
+    }
+};
+
 defineExpose({ setCurrentTime, getVideoElement });
 
 onMounted(() => {
     /* loop started on metadata */
 });
 onBeforeUnmount(() => {
+    isLoopActive = false;
     if (raf) cancelAnimationFrame(raf);
+    raf = null;
+    ctx = null;
+    processor = null;
 });
 </script>

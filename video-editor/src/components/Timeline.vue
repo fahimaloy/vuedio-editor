@@ -1,10 +1,10 @@
 <!-- src/components/Timeline.vue -->
 <template>
     <section
-        class="rounded-xl border border-white/10 bg-white/[0.03] p-3 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] select-none"
+        class="w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] select-none flex flex-col"
     >
         <!-- Header -->
-        <div class="flex items-center justify-between gap-3 px-1">
+        <div class="flex items-center justify-between gap-3 px-1 flex-shrink-0">
             <div class="flex items-center gap-3">
                 <h3 class="text-sm font-semibold text-neutral-200">Timeline</h3>
                 <span
@@ -102,7 +102,7 @@
 
         <!-- Ruler (clickable for seeking) -->
         <div
-            class="mt-3 overflow-hidden rounded-lg border border-white/10"
+            class="mt-3 overflow-hidden rounded-lg border border-white/10 flex-shrink-0"
             ref="timelineContainer"
         >
             <div class="grid grid-cols-[180px_1fr] bg-neutral-900/60 relative">
@@ -140,7 +140,7 @@
 
             <!-- Tracks (vertical scroll) -->
             <div
-                class="relative max-h-[46vh] overflow-auto bg-neutral-950/40"
+                class="relative flex-1 overflow-auto bg-neutral-950/40 min-h-0"
                 ref="tracksContainer"
             >
                 <div :style="{ width: timelineWidth }">
@@ -267,7 +267,7 @@
         </div>
 
         <!-- Ops row -->
-        <div class="mt-2 flex items-center gap-2">
+        <div class="mt-2 flex items-center gap-2 flex-shrink-0">
             <button
                 :disabled="!canSplit"
                 @click="

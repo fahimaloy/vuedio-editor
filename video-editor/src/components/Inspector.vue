@@ -1,7 +1,9 @@
 <!-- src/components/Inspector.vue -->
 <template>
-    <aside class="rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <div class="mb-3 flex items-center justify-between">
+    <aside
+        class="h-full rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col"
+    >
+        <div class="mb-3 flex items-center justify-between flex-shrink-0">
             <h3 class="text-sm font-semibold text-neutral-200">Inspector</h3>
             <button
                 v-if="current"
@@ -12,11 +14,33 @@
             </button>
         </div>
 
-        <div v-if="!current" class="text-xs text-neutral-500">
-            Select an item to edit its properties.
+        <div v-if="!current" class="flex-1 flex items-center justify-center">
+            <div class="text-center">
+                <div
+                    class="mx-auto mb-3 grid size-12 place-items-center rounded-xl bg-white/5"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-6 w-6 text-neutral-400"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        stroke-width="1.5"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M9 10l4.553-2.276A1 1 0 0115 8.618v6.764a1 1 0 01-1.447.894L9 14"
+                        />
+                    </svg>
+                </div>
+                <p class="text-xs text-neutral-500">
+                    Select an item to edit its properties.
+                </p>
+            </div>
         </div>
 
-        <div v-else class="space-y-3">
+        <div v-else class="flex-1 min-h-0 overflow-y-auto space-y-3">
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-[11px] text-neutral-400 mb-1"
@@ -67,46 +91,54 @@
             <div class="grid grid-cols-4 gap-2">
                 <div>
                     <label class="block text-[11px] text-neutral-400 mb-1"
-                        >X</label
+                        >X Position</label
                     >
                     <input
                         type="number"
                         step="0.01"
+                        min="0"
+                        max="1"
                         v-model.number="draft.x"
-                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none"
+                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
                     />
                 </div>
                 <div>
                     <label class="block text-[11px] text-neutral-400 mb-1"
-                        >Y</label
+                        >Y Position</label
                     >
                     <input
                         type="number"
                         step="0.01"
+                        min="0"
+                        max="1"
                         v-model.number="draft.y"
-                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none"
+                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
                     />
                 </div>
                 <div>
                     <label class="block text-[11px] text-neutral-400 mb-1"
-                        >W</label
+                        >Width</label
                     >
                     <input
                         type="number"
                         step="0.01"
+                        min="0.02"
+                        max="1"
                         v-model.number="draft.w"
-                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none"
+                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
                     />
                 </div>
                 <div>
                     <label class="block text-[11px] text-neutral-400 mb-1"
-                        >H</label
+                        >Height</label
                     >
                     <input
                         type="number"
                         step="0.01"
+                        min="0.02"
+                        max="1"
                         v-model.number="draft.h"
-                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none"
+                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
                     />
                 </div>
             </div>
@@ -221,7 +253,7 @@
                 </div>
             </div>
 
-            <div class="flex items-center justify-end gap-2 pt-2">
+            <div class="flex items-center justify-end gap-2 pt-2 flex-shrink-0">
                 <button
                     @click="emitRemove"
                     class="rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-rose-300 hover:bg-white/10"
@@ -320,18 +352,18 @@ const emitRemove = () => {
 };
 
 const resetToDefaults = () => {
-  if (!current.value) return;
-  emit("reset-item", {
-    trackId: props.selected[0].trackId,
-    itemId: props.selected[0].itemId,
-  });
+    if (!current.value) return;
+    emit("reset-item", {
+        trackId: props.selected[0].trackId,
+        itemId: props.selected[0].itemId,
+    });
 };
 
 // Text formatting helpers
 const toggleBold = () => {
-  draft.fontWeight = draft.fontWeight >= 700 ? 400 : 700
-}
+    draft.fontWeight = draft.fontWeight >= 700 ? 400 : 700;
+};
 const toggleItalic = () => {
-  draft.fontStyle = draft.fontStyle === 'italic' ? 'normal' : 'italic'
-}
+    draft.fontStyle = draft.fontStyle === "italic" ? "normal" : "italic";
+};
 </script>

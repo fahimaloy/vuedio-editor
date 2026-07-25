@@ -1,106 +1,118 @@
 <!-- src/components/VideoEditor.vue -->
 <template>
-    <div class="video-editor space-y-4">
-        <div class="grid grid-cols-12 gap-4">
-            <!-- Preview + Overlays -->
-            <div class="col-span-12 xl:col-span-8 space-y-3">
+    <div class="video-editor h-full flex flex-col">
+        <!-- Top Row: Video Preview (2 cols) + Tabbed Panels (1 col) -->
+        <div class="flex-1 min-h-0 mb-4 flex gap-4">
+            <!-- Video Preview (2 columns - full height) -->
+            <div class="flex-1 min-w-0">
+                <VideoPreview
+                    ref="preview"
+                    :video-url="videoUrl"
+                    :current-time="currentTime"
+                    :filters="filters"
+                    :overlay-items="visibleOverlayItems"
+                    :selected="selection"
+                    @time-update="handleTimeUpdate"
+                    @duration-change="handleDurationChange"
+                    @ready="handleReady"
+                    @playing-change="isPlaying = $event"
+                    @overlay-move="onOverlayMove"
+                    @overlay-resize="onOverlayResize"
+                    @overlay-select="onOverlaySelect"
+                    @upload-video="handleVideoUpload"
+                />
+            </div>
+
+            <!-- Tabbed Panels (1 column - full height) -->
+            <div class="w-96 flex flex-col flex-shrink-0">
                 <div
-                    class="relative rounded-xl border border-white/10 bg-white/[0.03] p-3"
+                    class="flex border-b border-white/10 bg-white/[0.02] backdrop-blur-sm rounded-t-xl"
                 >
-                    <VideoPreview
-                        ref="preview"
-                        :video-url="videoUrl"
-                        :current-time="currentTime"
-                        :filters="filters"
-                        :overlay-items="visibleOverlayItems"
-                        :selected="selection"
-                        @time-update="handleTimeUpdate"
-                        @duration-change="handleDurationChange"
-                        @ready="handleReady"
-                        @playing-change="isPlaying = $event"
-                        @overlay-move="onOverlayMove"
-                        @overlay-resize="onOverlayResize"
-                        @overlay-select="onOverlaySelect"
-                    />
+                    <button
+                        v-for="tab in tabs"
+                        :key="tab.id"
+                        :class="[
+                            'flex-1 px-3 py-2 text-xs font-medium transition-all relative',
+                            activeTab === tab.id
+                                ? 'text-violet-300 border-b-2 border-violet-400 bg-white/[0.04]'
+                                : 'text-neutral-400 hover:text-neutral-200 hover:bg-white/[0.02]',
+                        ]"
+                        @click="activeTab = tab.id"
+                    >
+                        <span class="relative">
+                            {{ tab.label }}
+                            <span
+                                v-if="
+                                    tab.id === 'media' &&
+                                    store.mediaLibrary.length > 0
+                                "
+                                class="absolute -top-1 -right-1 text-[9px] bg-violet-500 text-neutral-950 rounded-full w-3.5 h-3.5 flex items-center justify-center"
+                                >{{ store.mediaLibrary.length }}</span
+                            >
+                        </span>
+                    </button>
                 </div>
 
-                <!-- Uploader -->
+                <!-- Tab Contents - Full height container -->
                 <div
-                    class="upload-area"
-                    @dragover.prevent
-                    @drop="handleFileDrop"
+                    class="flex-1 overflow-y-auto overflow-x-hidden border-l border-r border-b border-white/10 bg-white/[0.02] rounded-b-xl min-h-0"
                 >
-                    <div
-                        v-if="!videoUrl"
-                        class="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-6 text-center"
-                    >
-                        <input
-                            type="file"
-                            id="video-upload"
-                            accept="video/*"
-                            @change="handleFileUpload"
-                            hidden
+                    <!-- Effects & Compositions Tab -->
+                    <div v-show="activeTab === 'effects'" class="h-full">
+                        <Controls
+                            :playing="isPlaying"
+                            :filters="filters"
+                            :duration="duration"
+                            :current-time="currentTime"
+                            @add-filter="addFilter"
+                            @remove-filter="removeFilter"
+                            @update-filter="updateFilter"
+                            @seek="seekToTime"
+                            @export="exportVideo"
+                            @toggle-play="onTogglePlay"
                         />
-                        <label
-                            for="video-upload"
-                            class="inline-flex cursor-pointer items-center gap-2 rounded-md border border-white/10 bg-white/5 px-4 py-2 text-sm text-neutral-200 hover:bg-white/10 transition"
-                        >
-                            Upload a video
-                        </label>
-                        <p class="mt-2 text-xs text-neutral-500">
-                            Supported: MP4, WebM, MOV
-                        </p>
+                    </div>
+
+                    <!-- Media Library Tab -->
+                    <div v-show="activeTab === 'media'" class="h-full">
+                        <MediaLibrary @remove="removeMediaFromLibrary" />
+                    </div>
+
+                    <!-- Inspector Tab -->
+                    <div v-show="activeTab === 'inspector'" class="h-full">
+                        <Inspector
+                            :selected="selection"
+                            :tracks="tracks"
+                            :duration="duration"
+                            @update-item="onUpdateItem"
+                            @remove="onRemoveSelection"
+                            @reset-item="onResetItem"
+                        />
                     </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Controls + Inspector -->
-            <div class="col-span-12 xl:col-span-4 space-y-4">
-                <Controls
-                    :playing="isPlaying"
-                    :filters="filters"
-                    :duration="duration"
-                    :current-time="currentTime"
-                    @add-filter="addFilter"
-                    @remove-filter="removeFilter"
-                    @update-filter="updateFilter"
-                    @seek="seekToTime"
-                    @export="exportVideo"
-                    @toggle-play="onTogglePlay"
-                />
-
-                <Inspector
-                    :selected="selection"
-                    :tracks="tracks"
-                    :duration="duration"
-                    @update-item="onUpdateItem"
-                    @remove="onRemoveSelection"
-                    @reset-item="onResetItem"
-                />
-
-                <MediaLibrary @remove="removeMediaFromLibrary" />
-            </div>
-
-            <!-- Timeline -->
-            <div class="col-span-12">
-                <Timeline
-                    :duration="duration"
-                    :current-time="currentTime"
-                    :tracks="tracks"
-                    :selected="selection"
-                    @seek="seekToTime"
-                    @add-clip="onAddClip"
-                    @add-text="onAddText"
-                    @add-track="onAddTrack"
-                    @remove-item="onRemoveItem"
-                    @split="onSplit"
-                    @merge="onMerge"
-                    @cut="onCut"
-                    @selection-change="onSelectionChange"
-                    @update-item="onUpdateItem"
-                    @move-item="onMoveItem"
-                />
-            </div>
+        <!-- Timeline (Full Width) -->
+        <div class="flex-shrink-0 w-full">
+            <Timeline
+                :duration="duration"
+                :current-time="currentTime"
+                :tracks="tracks"
+                :selected="selection"
+                @seek="seekToTime"
+                @add-clip="onAddClip"
+                @add-text="onAddText"
+                @add-track="onAddTrack"
+                @remove-item="onRemoveItem"
+                @split="onSplit"
+                @merge="onMerge"
+                @cut="onCut"
+                @selection-change="onSelectionChange"
+                @update-item="onUpdateItem"
+                @move-item="onMoveItem"
+                @open-inspector="onOpenInspector"
+            />
         </div>
 
         <!-- Export overlay -->
@@ -173,6 +185,14 @@ const tracks = ref([
 ]);
 const selection = ref([]);
 
+// Tab state
+const tabs = ref([
+    { id: "effects", label: "Effects & Compositions" },
+    { id: "media", label: "Media Library" },
+    { id: "inspector", label: "Inspector" },
+]);
+const activeTab = ref("effects");
+
 // Other component refs
 const preview = ref(null);
 const exporting = ref(false);
@@ -181,12 +201,27 @@ let videoProcessor = null;
 const clipPicker = ref(null);
 let pendingClipTrackId = null;
 
+/* ---------- Video Upload Handler ---------- */
+const handleVideoUpload = (url) => {
+    videoUrl.value = url;
+};
+
 /* ---------- wasm boot ---------- */
 onMounted(async () => {
     try {
         await initWasm();
+        console.info("WASM initialized successfully");
     } catch (e) {
         console.error("WASM load failed", e);
+        // Show user-friendly error in UI
+        // Using nextTick to ensure DOM is ready for alert
+        import("vue").then(({ nextTick }) => {
+            nextTick(() => {
+                alert(
+                    "Failed to initialize video processing engine. Some features may not work.",
+                );
+            });
+        });
     }
 });
 
@@ -204,26 +239,6 @@ const visibleOverlayItems = computed(() => {
     }
     return out.sort((a, b) => (a.z || 0) - (b.z || 0));
 });
-
-/* ---------- file handlers ---------- */
-const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (file && file.type.startsWith("video/")) {
-        videoUrl.value = URL.createObjectURL(file);
-        filters.value = [];
-        currentTime.value = 0;
-        isPlaying.value = false;
-    }
-};
-const handleFileDrop = (e) => {
-    const file = e.dataTransfer?.files?.[0];
-    if (file && file.type.startsWith("video/")) {
-        videoUrl.value = URL.createObjectURL(file);
-        filters.value = [];
-        currentTime.value = 0;
-        isPlaying.value = false;
-    }
-};
 
 /* ---------- preview events ---------- */
 const handleTimeUpdate = (t) => {
@@ -283,6 +298,10 @@ const onTogglePlay = async (shouldPlay) => {
         }
     } catch (e) {
         console.error("play/pause failed:", e);
+        // Handle common playback errors
+        if (e.name === "NotAllowedError") {
+            console.warn("Playback blocked - user interaction may be required");
+        }
     }
 };
 
@@ -463,6 +482,7 @@ const onCut = ({ start, end, selection: sel }) => {
     }
 };
 
+// Selection change handler - updates local selection state
 const onSelectionChange = (sel) => {
     selection.value = sel.slice();
 };
@@ -505,6 +525,12 @@ const onOverlayResize = ({ id, trackId, w, h }) => {
 };
 const onOverlaySelect = ({ id, trackId }) => {
     selection.value = [{ trackId, itemId: id }];
+    // The Timeline handles auto-opening the inspector
+};
+
+// Inspector tab switching handler
+const onOpenInspector = ({ trackId, itemId }) => {
+    activeTab.value = "inspector";
 };
 
 /* ---------- export ---------- */

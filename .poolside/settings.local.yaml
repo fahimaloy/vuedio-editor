@@ -4,3 +4,7 @@ tools:
             - ls *
             - pkill *
             - echo *
+            - mkdir *
+            - cat *
+            - od *
+            - head *

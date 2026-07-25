@@ -1,11 +1,11 @@
 <!-- src/components/Controls.vue -->
 <template>
-    <!-- Docked control panel -->
+    <!-- Docked control panel - full height -->
     <aside
-        class="rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)]"
+        class="h-full rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] flex flex-col"
     >
         <!-- Row 1: Transport + Time -->
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-shrink-0">
             <div class="flex items-center gap-2 shrink-0">
                 <!-- Play / Pause reflects parent state -->
                 <button
@@ -56,7 +56,7 @@
         </div>
 
         <!-- Row 2: Scrubber (separate row as requested) -->
-        <div class="mt-3 pt-3 border-t border-white/10">
+        <div class="mt-3 pt-3 border-t border-white/10 flex-shrink-0">
             <div class="flex items-center gap-3 min-w-0">
                 <input
                     type="range"
@@ -64,20 +64,32 @@
                     :max="duration || 0"
                     :value="currentTime || 0"
                     @input="handleSeek"
-                    class="min-w-0 w-0 flex-1 appearance-none bg-white/10 h-2 rounded-full outline-none"
+                    class="min-w-0 w-0 flex-1 appearance-none bg-white/10 h-2 rounded-full outline-none cursor-pointer"
+                    aria-label="Timeline scrubber"
                 />
                 <input
                     type="number"
                     :value="Math.round(currentTime || 0)"
                     @input="emit('seek', Number($event.target.value) || 0)"
                     class="w-16 shrink-0 rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-right text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
+                    :min="0"
+                    :max="duration || 0"
+                    aria-label="Current time in seconds"
                 />
+                <span
+                    class="text-xs text-neutral-400 font-mono w-12 text-right"
+                    aria-live="polite"
+                >
+                    {{ formatTime(currentTime || 0) }}
+                </span>
             </div>
         </div>
 
-        <!-- Filters -->
-        <div class="pt-4">
-            <div class="mb-3 flex items-center justify-between gap-2">
+        <!-- Filters - scrollable content -->
+        <div class="pt-4 flex-1 min-h-0 flex flex-col">
+            <div
+                class="mb-3 flex items-center justify-between gap-2 flex-shrink-0"
+            >
                 <h3 class="text-sm font-semibold text-neutral-200">
                     Effects &amp; Corrections
                 </h3>
@@ -133,113 +145,121 @@
                 </div>
             </div>
 
-            <div v-if="filters.length" class="grid gap-3">
-                <div
-                    v-for="(filter, index) in filters"
-                    :key="filter._id ?? `${filter.name}-${index}`"
-                    class="overflow-hidden rounded-lg border border-white/10 bg-neutral-900/60 p-3"
-                >
-                    <div class="mb-3 flex items-center justify-between">
-                        <div class="flex items-center gap-2 min-w-0">
-                            <span
-                                class="inline-flex size-2.5 rounded-full bg-violet-400/80"
-                            ></span>
-                            <span
-                                class="text-sm font-medium text-neutral-200 truncate"
-                                >{{ filter.label }}</span
-                            >
-                            <span
-                                class="text-[11px] text-neutral-400 hidden sm:inline"
-                                >({{ filter.name }})</span
-                            >
-                        </div>
-                        <div class="flex items-center gap-2">
-                            <button
-                                @click="emit('remove-filter', index)"
-                                class="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-rose-300 hover:bg-white/10 transition"
-                                title="Remove filter"
-                            >
-                                <XMarkIcon class="h-4 w-4" aria-hidden="true" />
-                                Remove
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Parameter rows -->
-                    <div v-if="filter.params" class="grid gap-3">
-                        <div
-                            v-for="(param, key) in filter.params"
-                            :key="key"
-                            class="grid grid-cols-12 items-center gap-3"
-                        >
-                            <!-- label -->
-                            <label
-                                class="col-span-12 sm:col-span-3 text-[12px] text-neutral-400"
-                            >
-                                {{ key }}
-                            </label>
-
-                            <!-- slider + value pill -->
-                            <div
-                                class="col-span-9 sm:col-span-7 flex items-center gap-3 min-w-0"
-                            >
-                                <input
-                                    type="range"
-                                    v-model.number="param.value"
-                                    :min="param.min"
-                                    :max="param.max"
-                                    :step="param.step || 1"
-                                    @input="
-                                        emit(
-                                            'update-filter',
-                                            index,
-                                            key,
-                                            param.value,
-                                        )
-                                    "
-                                    class="min-w-0 w-0 flex-1 appearance-none bg-white/10 h-2 rounded-full outline-none"
-                                />
+            <div class="flex-1 min-h-0 overflow-y-auto">
+                <div v-if="filters.length" class="grid gap-3">
+                    <div
+                        v-for="(filter, index) in filters"
+                        :key="filter._id ?? `${filter.name}-${index}`"
+                        class="overflow-hidden rounded-lg border border-white/10 bg-neutral-900/60 p-3"
+                    >
+                        <div class="mb-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2 min-w-0">
                                 <span
-                                    class="min-w-12 text-right text-[11px] font-mono text-neutral-300"
+                                    class="inline-flex size-2.5 rounded-full bg-violet-400/80"
+                                ></span>
+                                <span
+                                    class="text-sm font-medium text-neutral-200 truncate"
+                                    >{{ filter.label }}</span
                                 >
-                                    {{ toDisplay(param.value) }}
-                                </span>
+                                <span
+                                    class="text-[11px] text-neutral-400 hidden sm:inline"
+                                    >({{ filter.name }})</span
+                                >
                             </div>
+                            <div class="flex items-center gap-2">
+                                <button
+                                    @click="emit('remove-filter', index)"
+                                    class="inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-rose-300 hover:bg-white/10 transition"
+                                    title="Remove filter"
+                                >
+                                    <XMarkIcon
+                                        class="h-4 w-4"
+                                        aria-hidden="true"
+                                    />
+                                    Remove
+                                </button>
+                            </div>
+                        </div>
 
-                            <!-- numeric box -->
-                            <div class="col-span-3 sm:col-span-2">
-                                <input
-                                    type="number"
-                                    v-model.number="filter.params[key].value"
-                                    :min="param.min"
-                                    :max="param.max"
-                                    :step="param.step || 1"
-                                    @input="
-                                        emit(
-                                            'update-filter',
-                                            index,
-                                            key,
-                                            filter.params[key].value,
-                                        )
-                                    "
-                                    class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-right text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
-                                />
+                        <!-- Parameter rows -->
+                        <div v-if="filter.params" class="grid gap-3">
+                            <div
+                                v-for="(param, key) in filter.params"
+                                :key="key"
+                                class="grid grid-cols-12 items-center gap-3"
+                            >
+                                <!-- label -->
+                                <label
+                                    class="col-span-12 sm:col-span-3 text-[12px] text-neutral-400"
+                                >
+                                    {{ key }}
+                                </label>
+
+                                <!-- slider + value pill -->
+                                <div
+                                    class="col-span-9 sm:col-span-7 flex items-center gap-3 min-w-0"
+                                >
+                                    <input
+                                        type="range"
+                                        v-model.number="param.value"
+                                        :min="param.min"
+                                        :max="param.max"
+                                        :step="param.step || 1"
+                                        @input="
+                                            emit(
+                                                'update-filter',
+                                                index,
+                                                key,
+                                                param.value,
+                                            )
+                                        "
+                                        class="min-w-0 w-0 flex-1 appearance-none bg-white/10 h-2 rounded-full outline-none cursor-pointer"
+                                        :aria-label="`Filter ${filter.label} ${key}`"
+                                    />
+                                    <span
+                                        class="min-w-12 text-right text-[11px] font-mono text-neutral-300"
+                                    >
+                                        {{ toDisplay(param.value) }}
+                                    </span>
+                                </div>
+
+                                <!-- numeric box -->
+                                <div class="col-span-3 sm:col-span-2">
+                                    <input
+                                        type="number"
+                                        v-model.number="
+                                            filter.params[key].value
+                                        "
+                                        :min="param.min"
+                                        :max="param.max"
+                                        :step="param.step || 1"
+                                        @input="
+                                            emit(
+                                                'update-filter',
+                                                index,
+                                                key,
+                                                filter.params[key].value,
+                                            )
+                                        "
+                                        class="w-full rounded-md border border-white/10 bg-neutral-900 px-2 py-1 text-right text-xs text-neutral-100 outline-none focus:ring-2 focus:ring-violet-500/40"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <div
-                v-else
-                class="rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-xs text-neutral-500"
-            >
-                No filters yet. Add one above to get started.
+                <div
+                    v-else
+                    class="h-full rounded-lg border border-dashed border-white/10 bg-white/[0.02] p-6 text-center text-xs text-neutral-500 flex items-center justify-center"
+                >
+                    No filters yet. Add one above to get started.
+                </div>
             </div>
         </div>
 
         <!-- Export -->
-        <div class="mt-4 flex items-center justify-end gap-2">
+        <div class="mt-4 flex items-center justify-end gap-2 flex-shrink-0">
             <button
                 @click="emit('export')"
                 class="inline-flex items-center gap-2 rounded-md border border-white/10 bg-gradient-to-r from-violet-600 to-cyan-400 px-4 py-2 text-sm text-neutral-950 font-semibold shadow hover:brightness-105 active:scale-95 transition"
