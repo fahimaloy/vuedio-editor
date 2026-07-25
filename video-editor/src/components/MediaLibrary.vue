@@ -1,8 +1,10 @@
 <!-- src/components/MediaLibrary.vue -->
 <template>
-    <aside class="h-full flex flex-col">
-        <!-- Header -->
-        <div class="mb-3 flex items-center justify-between px-1 flex-shrink-0">
+    <aside
+        class="h-full rounded-b-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col"
+    >
+        <!-- Header inside container -->
+        <div class="mb-3 flex items-center justify-between flex-shrink-0">
             <h3 class="text-sm font-semibold text-neutral-200">
                 Media Library
             </h3>
@@ -40,7 +42,7 @@
         <!-- Upload Area (shown when empty) -->
         <div
             v-if="media.length === 0"
-            class="flex-1 rounded-xl border border-dashed border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-6 text-center flex flex-col items-center justify-center min-h-0"
+            class="flex-1 rounded-b-xl border border-dashed border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] p-6 text-center flex flex-col items-center justify-center min-h-0"
         >
             <input
                 id="media-upload-empty"
@@ -81,6 +83,7 @@
                 class="flex items-center gap-3 rounded-lg border border-white/10 bg-neutral-900/50 p-3 cursor-grab active:cursor-grabbing hover:bg-white/5 transition"
                 draggable="true"
                 @dragstart="onDragStart(item, $event)"
+                @click="previewMedia(item)"
             >
                 <div
                     class="flex-shrink-0 size-12 rounded-lg bg-neutral-800 grid place-items-center"
@@ -126,6 +129,7 @@ import {
 import { useEditorStore } from "../stores/editor";
 
 const store = useEditorStore();
+const emit = defineEmits(["remove", "preview-image"]);
 const fileInput = ref(null);
 
 const media = computed(() => store.mediaLibrary);
@@ -144,6 +148,10 @@ const handleFiles = (e) => {
 
 const onDragStart = (item, e) => {
     e.dataTransfer.setData("application/json", JSON.stringify(item));
+};
+
+const previewMedia = (item) => {
+    emit("preview-image", item);
 };
 
 const removeMedia = (id) => {

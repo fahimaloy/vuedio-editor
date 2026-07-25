@@ -9,6 +9,7 @@
                     ref="preview"
                     :video-url="videoUrl"
                     :current-time="currentTime"
+                    :duration="duration"
                     :filters="filters"
                     :overlay-items="visibleOverlayItems"
                     :selected="selection"
@@ -20,6 +21,8 @@
                     @overlay-resize="onOverlayResize"
                     @overlay-select="onOverlaySelect"
                     @upload-video="handleVideoUpload"
+                    @seek="seekToTime"
+                    @toggle-play="onTogglePlay"
                 />
             </div>
 
@@ -60,22 +63,20 @@
                     <!-- Effects & Compositions Tab -->
                     <div v-show="activeTab === 'effects'" class="h-full">
                         <Controls
-                            :playing="isPlaying"
                             :filters="filters"
-                            :duration="duration"
-                            :current-time="currentTime"
                             @add-filter="addFilter"
                             @remove-filter="removeFilter"
                             @update-filter="updateFilter"
-                            @seek="seekToTime"
                             @export="exportVideo"
-                            @toggle-play="onTogglePlay"
                         />
                     </div>
 
                     <!-- Media Library Tab -->
                     <div v-show="activeTab === 'media'" class="h-full">
-                        <MediaLibrary @remove="removeMediaFromLibrary" />
+                        <MediaLibrary
+                            @remove="removeMediaFromLibrary"
+                            @preview-image="previewMediaFromLibrary"
+                        />
                     </div>
 
                     <!-- Inspector Tab -->
@@ -112,6 +113,7 @@
                 @update-item="onUpdateItem"
                 @move-item="onMoveItem"
                 @open-inspector="onOpenInspector"
+                @add-media-item="onAddMediaItem"
             />
         </div>
 
@@ -170,6 +172,13 @@ const store = useEditorStore();
 // Media library handler
 const removeMediaFromLibrary = (id) => {
     store.removeMedia(id);
+};
+
+// Preview media from library
+const previewMediaFromLibrary = (item) => {
+    if (item.type === "video" || item.type === "image") {
+        videoUrl.value = item.url;
+    }
 };
 
 // Local refs for component state
@@ -372,6 +381,29 @@ const onPickClip = (e) => {
         src: url,
         start,
         end,
+        x: 0.1,
+        y: 0.1,
+        w: 0.4,
+        h: 0.4,
+        z: 0,
+    });
+};
+
+// Add media item from MediaLibrary drag-and-drop
+const onAddMediaItem = ({ trackId, mediaItem, start, end }) => {
+    const tr = findTrack(trackId);
+    if (!tr) return;
+
+    const kind = mediaItem.type || "image";
+    const actualEnd = Math.min(end, duration.value || end);
+
+    tr.items.push({
+        id: newId(),
+        kind,
+        label: mediaItem.name || (kind === "video" ? "Video" : "Image"),
+        src: mediaItem.url,
+        start,
+        end: actualEnd,
         x: 0.1,
         y: 0.1,
         w: 0.4,

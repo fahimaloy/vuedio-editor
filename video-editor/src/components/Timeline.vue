@@ -97,6 +97,62 @@
                         </button>
                     </div>
                 </div>
+
+                <!-- Split/Merge/Cut Buttons (Icon Only) -->
+                <div
+                    class="flex items-center gap-1 pl-2 border-l border-white/10"
+                >
+                    <button
+                        :disabled="!canSplit"
+                        @click="
+                            $emit('split', {
+                                trackId: selectedLocal[0]?.trackId,
+                                itemId: selectedLocal[0]?.itemId,
+                                time: currentTime,
+                            })
+                        "
+                        class="inline-flex items-center justify-center rounded-md border border-white/10 p-1.5 transition"
+                        :class="
+                            canSplit
+                                ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
+                                : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
+                        "
+                        title="Split"
+                    >
+                        <ScissorsIcon class="h-4 w-4" />
+                    </button>
+                    <button
+                        :disabled="!canMerge"
+                        @click="
+                            $emit('merge', {
+                                trackId: selectedLocal[0]?.trackId,
+                                itemIds: selectedLocal.map((s) => s.itemId),
+                            })
+                        "
+                        class="inline-flex items-center justify-center rounded-md border border-white/10 p-1.5 transition"
+                        :class="
+                            canMerge
+                                ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
+                                : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
+                        "
+                        title="Merge"
+                    >
+                        <LinkIcon class="h-4 w-4" />
+                    </button>
+                    <button
+                        :disabled="!canCut"
+                        @click="emitCutSelection"
+                        class="inline-flex items-center justify-center rounded-md border border-white/10 p-1.5 transition"
+                        :class="
+                            canCut
+                                ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
+                                : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
+                        "
+                        title="Cut"
+                    >
+                        <SlashIcon class="h-4 w-4" />
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -198,9 +254,40 @@
                                         toggleSelect(track.id, item.id, $event)
                                     "
                                 >
-                                    <div class="flex items-center gap-2">
+                                    <div class="flex items-center gap-2 h-full">
+                                        <!-- Thumbnail for video/image items -->
+                                        <div
+                                            v-if="
+                                                item.kind === 'video' ||
+                                                item.kind === 'image'
+                                            "
+                                            class="flex-shrink-0 size-8 rounded bg-neutral-800 overflow-hidden grid place-items-center"
+                                        >
+                                            <video
+                                                v-if="
+                                                    item.kind === 'video' &&
+                                                    item.src
+                                                "
+                                                :src="item.src"
+                                                class="h-full w-full object-cover pointer-events-none"
+                                                preload="metadata"
+                                            ></video>
+                                            <img
+                                                v-else-if="
+                                                    item.kind === 'image' &&
+                                                    item.src
+                                                "
+                                                :src="item.src"
+                                                class="h-full w-full object-cover pointer-events-none"
+                                            />
+                                            <PhotoIcon
+                                                v-else
+                                                class="h-4 w-4 text-amber-400"
+                                            />
+                                        </div>
                                         <span
-                                            class="inline-block h-2 w-2 rounded-full"
+                                            v-else
+                                            class="inline-block h-2 w-2 rounded-full flex-shrink-0"
                                             :class="
                                                 track.type === 'video'
                                                     ? 'bg-violet-300'
@@ -211,7 +298,7 @@
                                                         : 'bg-amber-300'
                                             "
                                         ></span>
-                                        <span class="truncate">{{
+                                        <span class="truncate flex-1">{{
                                             item.label ||
                                             defaultItemLabel(track.type)
                                         }}</span>
@@ -265,63 +352,19 @@
                 </div>
             </div>
         </div>
-
-        <!-- Ops row -->
-        <div class="mt-2 flex items-center gap-2 flex-shrink-0">
-            <button
-                :disabled="!canSplit"
-                @click="
-                    $emit('split', {
-                        trackId: selectedLocal[0]?.trackId,
-                        itemId: selectedLocal[0]?.itemId,
-                        time: currentTime,
-                    })
-                "
-                class="rounded-md border border-white/10 px-3 py-1.5 text-xs"
-                :class="
-                    canSplit
-                        ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
-                        : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
-                "
-            >
-                Split
-            </button>
-            <button
-                :disabled="!canMerge"
-                @click="
-                    $emit('merge', {
-                        trackId: selectedLocal[0]?.trackId,
-                        itemIds: selectedLocal.map((s) => s.itemId),
-                    })
-                "
-                class="rounded-md border border-white/10 px-3 py-1.5 text-xs"
-                :class="
-                    canMerge
-                        ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
-                        : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
-                "
-            >
-                Merge
-            </button>
-            <button
-                :disabled="!canCut"
-                @click="emitCutSelection"
-                class="rounded-md border border-white/10 px-3 py-1.5 text-xs"
-                :class="
-                    canCut
-                        ? 'bg-white/5 text-neutral-200 hover:bg-white/10'
-                        : 'bg-white/[0.03] text-neutral-500 opacity-60 cursor-not-allowed'
-                "
-            >
-                Cut
-            </button>
-        </div>
     </section>
 </template>
 
 <script setup>
 import { ref, computed, watch } from "vue";
-import { MinusIcon, PlusIcon } from "@heroicons/vue/24/solid";
+import {
+    MinusIcon,
+    PlusIcon,
+    ScissorsIcon,
+    LinkIcon,
+    SlashIcon,
+    PhotoIcon,
+} from "@heroicons/vue/24/solid";
 
 const props = defineProps({
     duration: { type: Number, default: 0 },
@@ -341,6 +384,7 @@ const emit = defineEmits([
     "selection-change",
     "update-item",
     "move-item",
+    "add-media-item",
 ]);
 
 const trackMenuOpen = ref(false);
@@ -530,16 +574,46 @@ const onDragStart = (fromTrackId, item, e) => {
         e.dataTransfer.setData("text/plain", "drag");
     } catch {}
 };
-const onDragOverTrack = (_toTrackId, e) => {
-    e.dataTransfer.dropEffect = "move";
+const onDragOverTrack = (toTrackId, e) => {
+    e.dataTransfer.dropEffect = "copy";
 };
 const onDropOnTrack = (toTrackId, e) => {
-    if (!dragPayload) return;
     const lane = e.currentTarget;
     const rect = lane.getBoundingClientRect();
     const x = e.clientX - rect.left + (lane.scrollLeft || 0);
     const pct = Math.min(Math.max(x / rect.width, 0), 1);
     const newStart = pct * (props.duration || 0);
+
+    // Check if this is an external drop from MediaLibrary
+    const jsonData = e.dataTransfer.getData("application/json");
+    if (jsonData && !dragPayload) {
+        try {
+            const item = JSON.parse(jsonData);
+            // Only handle video, image, and audio types
+            if (
+                item.type === "video" ||
+                item.type === "image" ||
+                item.type === "audio"
+            ) {
+                const end = Math.min(
+                    newStart + 5,
+                    props.duration || newStart + 5,
+                );
+                emit("add-media-item", {
+                    trackId: toTrackId,
+                    mediaItem: item,
+                    start: newStart,
+                    end: end,
+                });
+                return;
+            }
+        } catch (err) {
+            console.warn("Failed to parse drop data:", err);
+        }
+    }
+
+    // Internal move-item
+    if (!dragPayload) return;
     emit("move-item", {
         itemId: dragPayload.itemId,
         fromTrackId: dragPayload.fromTrackId,

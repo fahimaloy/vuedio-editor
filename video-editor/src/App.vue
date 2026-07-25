@@ -53,7 +53,7 @@
         </header>
 
         <!-- Main -->
-        <main class="flex-1 overflow-hidden">
+        <main class="flex-1 overflow-hidden p-4">
             <VideoEditor />
         </main>
 

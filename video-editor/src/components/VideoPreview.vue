@@ -1,12 +1,20 @@
 <!-- src/components/VideoPreview.vue -->
 <template>
     <section class="h-full flex flex-col">
-        <!-- Video with controls -->
+        <!-- Hidden file input for video upload (always available) -->
+        <input
+            ref="fileInput"
+            type="file"
+            accept="video/*,image/*"
+            class="hidden"
+            @change="handleVideoUpload"
+        />
+
+        <!-- Video Area with Footer -->
         <div
             v-if="videoUrl"
-            class="relative flex-1 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] flex flex-col"
+            class="relative flex-1 overflow-hidden rounded-t-xl border border-white/10 bg-white/[0.03] shadow-[0_10px_40px_-10px_rgba(0,0,0,0.6)] flex flex-col"
         >
-            <!-- Hidden video; canvas shows the frame -->
             <video
                 ref="videoElement"
                 :src="videoUrl"
@@ -26,19 +34,10 @@
                 @ended="emitPlaying"
             ></video>
 
-            <!-- Hidden file input for video upload -->
-            <input
-                ref="fileInput"
-                type="file"
-                accept="video/*,image/*"
-                class="hidden"
-                @change="handleVideoUpload"
-            />
-
             <div class="relative flex-1 min-h-0">
                 <canvas
                     ref="canvasElement"
-                    class="block w-full h-full bg-black rounded-xl"
+                    class="block w-full h-full bg-black rounded-t-xl"
                 ></canvas>
 
                 <!-- Overlays -->
@@ -123,11 +122,80 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Footer with playback controls and timeline -->
+            <div
+                class="flex-shrink-0 border-t border-white/10 bg-white/[0.02] px-4 py-2"
+            >
+                <!-- Row 1: Playback controls -->
+                <div class="flex items-center justify-center gap-2 mb-2">
+                    <button
+                        @click="emit('toggle-play', !isPlaying)"
+                        class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-200 hover:bg-white/10 transition"
+                        :title="isPlaying ? 'Pause' : 'Play'"
+                    >
+                        <PauseIcon
+                            v-if="isPlaying"
+                            class="h-5 w-5"
+                            aria-hidden="true"
+                        />
+                        <PlayIcon v-else class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <button
+                        @click="seekRelative(-5)"
+                        class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-200 hover:bg-white/10 transition"
+                        title="Rewind 5s"
+                    >
+                        <BackwardIcon class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <button
+                        @click="seekRelative(5)"
+                        class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-200 hover:bg-white/10 transition"
+                        title="Forward 5s"
+                    >
+                        <ForwardIcon class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <button
+                        @click="seekFrame(-1)"
+                        class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-200 hover:bg-white/10 transition"
+                        title="Previous frame"
+                    >
+                        <ChevronLeftIcon class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                    <button
+                        @click="seekFrame(1)"
+                        class="inline-flex size-9 items-center justify-center rounded-md border border-white/10 bg-white/5 text-neutral-200 hover:bg-white/10 transition"
+                        title="Next frame"
+                    >
+                        <ChevronRightIcon class="h-5 w-5" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <!-- Row 2: Timeline progress bar -->
+                <div class="flex items-center gap-3">
+                    <input
+                        type="range"
+                        min="0"
+                        :max="duration || 0"
+                        :value="currentTime || 0"
+                        @input="handleSeek"
+                        class="flex-1 appearance-none bg-white/10 h-2 rounded-full outline-none cursor-pointer"
+                        aria-label="Timeline scrubber"
+                    />
+                    <span
+                        class="text-[11px] font-mono text-neutral-400 w-20 text-right"
+                        aria-live="polite"
+                    >
+                        {{ formatTime(currentTime || 0) }} /
+                        {{ formatTime(duration || 0) }}
+                    </span>
+                </div>
+            </div>
         </div>
 
         <div
             v-else
-            class="flex-1 grid place-items-center rounded-xl border border-dashed border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] min-h-0"
+            class="flex-1 grid place-items-center rounded-b-xl border border-dashed border-white/10 bg-gradient-to-b from-white/[0.04] to-white/[0.02] min-h-0"
         >
             <div class="max-w-md space-y-4 px-4 text-center">
                 <div
@@ -169,13 +237,22 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from "vue";
+import { ref, watch, onMounted, onBeforeUnmount, computed } from "vue";
 import { VideoProcessor } from "../wasm/video_processor";
 import { ArrowUpTrayIcon } from "@heroicons/vue/24/outline";
+import {
+    PlayIcon,
+    PauseIcon,
+    BackwardIcon,
+    ForwardIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
+} from "@heroicons/vue/24/solid";
 
 const props = defineProps({
     videoUrl: String,
     currentTime: Number,
+    duration: Number,
     filters: { type: Array, default: () => [] },
     overlayItems: { type: Array, default: () => [] }, // [{id,trackId,kind:'video'|'image'|'text', x,y,w,h,z,text,color,fontSize,fontFamily,src}]
     selected: { type: Array, default: () => [] }, // [{trackId,itemId}]
@@ -189,7 +266,14 @@ const emit = defineEmits([
     "overlay-resize",
     "overlay-select",
     "upload-video",
+    "seek",
+    "toggle-play",
 ]);
+
+const isPlaying = computed(() => {
+    const v = videoElement.value;
+    return v ? !v.paused && !v.ended : false;
+});
 
 const videoElement = ref(null);
 const canvasElement = ref(null);
@@ -467,6 +551,38 @@ const onResizeMove = (e) => {
 const onResizeEnd = () => {
     resizeState = null;
     window.removeEventListener("pointermove", onResizeMove);
+};
+
+// Footer control helpers
+const formatTime = (s) => {
+    if (!isFinite(s)) return "00:00";
+    const mins = Math.floor(s / 60);
+    const secs = Math.floor(s % 60);
+    return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+};
+const handleSeek = (e) => emit("seek", parseFloat(e.target.value || "0"));
+const seekRelative = (seconds) => {
+    const v = videoElement.value;
+    if (!v) return;
+    const newTime = Math.max(
+        0,
+        Math.min(
+            (v.currentTime || 0) + seconds,
+            duration.value || v.duration || 0,
+        ),
+    );
+    emit("seek", newTime);
+};
+const seekFrame = (direction) => {
+    const v = videoElement.value;
+    if (!v || !v.duration) return;
+    // Assume ~30fps for frame stepping
+    const frameTime = 1 / 30;
+    const newTime = Math.max(
+        0,
+        Math.min((v.currentTime || 0) + frameTime * direction, v.duration),
+    );
+    emit("seek", newTime);
 };
 
 /* expose to parent */

@@ -1,7 +1,7 @@
 <!-- src/components/Inspector.vue -->
 <template>
     <aside
-        class="h-full rounded-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col"
+        class="h-full rounded-b-xl border border-white/10 bg-white/[0.03] p-4 flex flex-col"
     >
         <div class="mb-3 flex items-center justify-between flex-shrink-0">
             <h3 class="text-sm font-semibold text-neutral-200">Inspector</h3>
